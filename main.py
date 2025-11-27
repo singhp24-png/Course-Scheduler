@@ -14,7 +14,7 @@ def scrape_banner(max_pages):
         page = browser.new_page()
         page.goto(START_URL)
 
-        #Term selection
+        # Term selection
         page.wait_for_selector(".select2-chosen")
         page.click(".select2-chosen")
         page.fill(".select2-input", "Spring 2026")
