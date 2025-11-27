@@ -10,7 +10,7 @@ def scrape_banner(max_pages):
     page_count = 0
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto(START_URL)
 
