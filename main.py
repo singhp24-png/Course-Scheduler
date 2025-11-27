@@ -1,21 +1,13 @@
 from playwright.sync_api import sync_playwright
+from bs4 import BeautifulSoup
+import time
 import json
-from collections import defaultdict
 
 START_URL = "https://banner.udayton.edu/StudentRegistrationSsb/ssb/term/termSelection?mode=search"
 
-def parse_class_row(row):
-    """Extract course data from a table row using data-property attributes."""
-    data = {}
-    tds = row.locator("td").all()
-    for td in tds:
-        prop = td.get_attribute("data-property")
-        if prop:
-            data[prop] = td.inner_text().strip()
-    return data
-
-def scrape_banner():
-    courses = defaultdict(lambda: {"meetings": []})  # group by CRN
+def scrape_banner(max_pages):
+    all_courses = []
+    page_count = 0
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
@@ -32,41 +24,40 @@ def scrape_banner():
         # --- Click Search ---
         page.wait_for_selector("button#search-go")
         page.locator("button#search-go").click()
-        page.wait_for_selector("table#searchResults tbody tr")
+        time.sleep(5)  # wait for AJAX
 
-        # --- Scrape pages ---
-        while True:
-            rows = page.locator("table#searchResults tbody tr").all()
+        while page_count < max_pages:
+            page_count += 1
+            print(f"Scraping page {page_count}...")
+
+            # --- Parse current page ---
+            soup = BeautifulSoup(page.content(), "html.parser")
+            rows = soup.find_all("tr", attrs={"data-id": True})
+
             for row in rows:
-                data = parse_class_row(row)
-                crn = data.get("crn")
-                if not crn:
-                    continue
+                row_data = {}
+                for td in row.find_all("td"):
+                    if td.has_attr("data-property"):
+                        row_data[td["data-property"]] = td.get_text(strip=True)
+                all_courses.append(row_data)
 
-                # Store main course info if not already present
-                if not courses[crn].get("subject"):
-                    for key, value in data.items():
-                        if key not in ["meetingDays", "meetingTime", "building", "room"]:
-                            courses[crn][key] = value
-
-                # Store meeting info
-                meeting = {k: data[k] for k in ["meetingDays", "meetingTime", "building", "room"] if k in data}
-                if meeting:
-                    courses[crn]["meetings"].append(meeting)
-
-            next_btn = page.locator("button[aria-label='Next Page']")
-            if next_btn.is_disabled():
+            # --- Check for Next button ---
+            next_button = page.query_selector("button.paging-control.next.enabled")
+            if next_button:
+                next_button.click()
+                time.sleep(5)  # wait for next page to load
+            else:
+                print("No more pages.")
                 break
 
-            next_btn.click()
-            page.wait_for_selector("table#searchResults tbody tr")  # wait for next page
-
-        browser.close()
-
-    return list(courses.values())
+    return all_courses
 
 if __name__ == "__main__":
-    data = scrape_banner()
-    with open("classes.json", "w") as f:
-        json.dump(data, f, indent=4)
-    print("Saved classes.json")
+    courses = scrape_banner(max_pages=5)
+    print(f"Total courses scraped: {len(courses)}")
+
+    # --- Write to JSON file ---
+    with open("courses.json", "w", encoding="utf-8") as f:
+        json.dump(courses, f, ensure_ascii=False, indent=4)
+
+    print("Courses saved to courses.json")
