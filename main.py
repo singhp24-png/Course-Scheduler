@@ -53,7 +53,7 @@ def scrape_banner(max_pages):
     return all_courses
 
 if __name__ == "__main__":
-    courses = scrape_banner(max_pages=5)
+    courses = scrape_banner(max_pages=3000)
     print(f"Total courses scraped: {len(courses)}")
 
     # --- Write to JSON file ---
