@@ -14,14 +14,14 @@ def scrape_banner(max_pages):
         page = browser.new_page()
         page.goto(START_URL)
 
-        # --- Term selection ---
+        #Term selection
         page.wait_for_selector(".select2-chosen")
         page.click(".select2-chosen")
         page.fill(".select2-input", "Spring 2026")
         page.locator("div.select2-result-label", has_text="Spring 2026").click()
         page.locator("button#term-go").click(force=True)
 
-        # --- Click Search ---
+        # Click Search
         page.wait_for_selector("button#search-go")
         page.locator("button#search-go").click()
         time.sleep(5)  # wait for AJAX
@@ -30,7 +30,7 @@ def scrape_banner(max_pages):
             page_count += 1
             print(f"Scraping page {page_count}...")
 
-            # --- Parse current page ---
+            # Parse current page
             soup = BeautifulSoup(page.content(), "html.parser")
             rows = soup.find_all("tr", attrs={"data-id": True})
 
@@ -41,7 +41,7 @@ def scrape_banner(max_pages):
                         row_data[td["data-property"]] = td.get_text(strip=True)
                 all_courses.append(row_data)
 
-            # --- Check for Next button ---
+            # Check for Next button
             next_button = page.query_selector("button.paging-control.next.enabled")
             if next_button:
                 next_button.click()
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     courses = scrape_banner(max_pages=3000)
     print(f"Total courses scraped: {len(courses)}")
 
-    # --- Write to JSON file ---
+    # Write to JSON
     with open("courses.json", "w", encoding="utf-8") as f:
         json.dump(courses, f, ensure_ascii=False, indent=4)
 
